@@ -11,6 +11,10 @@ accuracy matters more than coverage.
 
 1. **discover** – queries the OpenAlex API (`/works`) for each search in the config, following
    the cursor until the last page, filtered by publication date and `types`.
+   `search_in` decides where queries match: `title_and_abstract` (default; sent as the
+   `title_and_abstract.search` filter, so no commas in queries) or `all_text` (the `search`
+   parameter, which also matches full text). `query_args` builds both; every request for a
+   query, including the full-text code lookup and `--check-queries`, must go through it.
 2. **dedup** – stores each paper once in `<data>/papers.sqlite`, keyed on the OpenAlex ID.
    The `runs` table records run dates; later runs search only from the last run date minus
    `overlap_days` (or from `--since`). `flag_duplicates` then links preprints to separate

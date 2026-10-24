@@ -91,6 +91,7 @@ Start from `config.yaml`, a commented template. Everything that defines a topic 
 |---|---|
 | `title` | heading of the dashboard |
 | `queries` | named OpenAlex search strings (Boolean, quoted phrases) |
+| `search_in` | `title_and_abstract` (default, precise) or `all_text` (also full text: more recall, many off-topic papers) |
 | `start_date`, `overlap_days` | first-run horizon; safety overlap for later runs |
 | `types` | OpenAlex work types to keep |
 | `code_hosts` | domains whose links count as "code or weights available" |
@@ -117,7 +118,10 @@ For each query it reports how many papers match, which publication types `types`
 how many papers mention a code host in their full text, and two samples of titles: the most
 relevant ones and some from deep in the results (around 80% of the ranking). OpenAlex sorts by
 relevance, so the deep sample is where off-topic matches show up: if most of those titles are
-off-topic, tighten the query (more specific phrases, an extra `AND` group). A check costs five
+off-topic, tighten the query (more specific phrases, an extra `AND` group). With the default
+`search_in: title_and_abstract`, a paper only matches if its title or abstract uses your words,
+so add synonyms (e.g. `"neural network"` or `convolutional` next to `"deep learning"`) and
+watch how the count changes. A check costs five
 OpenAlex requests per query.
 
 ## Outputs (in the data folder)
@@ -204,7 +208,9 @@ usable, is the reviewer's job (the `review_columns`), possibly helped by PaperSn
 ## Limitations
 
 - Discovery uses OpenAlex only, and is only as good as the search queries: papers not matched
-  by any query are never seen.
+  by any query are never seen. With `search_in: title_and_abstract`, a relevant paper whose
+  title and abstract use other words than the query (e.g. "CNN" instead of "deep learning")
+  is missed.
 - Papers with no code link in the abstract and no full text in OpenAlex cannot be screened;
   code released after publication, or announced only on a project page, is missed.
 - Reviews typed as `article` are flagged by title words only; duplicates are matched by title

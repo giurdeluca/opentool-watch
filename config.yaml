@@ -11,6 +11,13 @@ queries:
     "your topic phrase"
     AND ("deep learning" OR "machine learning" OR "artificial intelligence")
 
+# Where the queries are matched. title_and_abstract (recommended) only counts papers whose title
+# or abstract match; all_text also matches the full text, so papers that merely mention the
+# terms (e.g. in their references) come in too: more recall, much lower precision. With
+# title_and_abstract, list synonyms explicitly (e.g. "neural network" next to "deep learning")
+# and do not use commas in queries.
+search_in: title_and_abstract
+
 # First run harvests everything published since this date.
 # Later runs only ask for papers published since the previous run (minus a safety overlap).
 start_date: "2020-01-01"

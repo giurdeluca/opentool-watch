@@ -78,18 +78,41 @@ def openalex_get(session, params):
     return r.json()
 
 
+SEARCH_IN = ("title_and_abstract", "all_text")
+
+
+def query_args(query, search_in):
+    """Turn a configured query into (search parameter, filter) for OpenAlex.
+
+    OpenAlex's `search` parameter matches title, abstract *and* full text, so any paper that
+    mentions the terms anywhere (e.g. in its references) qualifies. The
+    `title_and_abstract.search` filter takes the same Boolean syntax but only looks at the
+    title and abstract: far fewer off-topic papers, at some cost in recall.
+    """
+    q = " ".join(query.split())
+    if search_in == "all_text":
+        return q, None
+    if search_in == "title_and_abstract":
+        if "," in q:  # a comma would end the filter and start a new one
+            raise ValueError(f"remove the comma from query {q!r}: commas are not allowed "
+                             "when search_in is title_and_abstract")
+        return None, f"title_and_abstract.search:{q}"
+    raise ValueError(f"search_in must be one of {', '.join(SEARCH_IN)}, not {search_in!r}")
+
+
+def join_filters(*filters):
+    return ",".join(f for f in filters if f) or None
+
+
 def fetch_page(session, query, from_date, types, cursor, extra_filter=None, select=FIELDS):
     """One OpenAlex page. Returns (results, next_cursor)."""
     filters = f"from_publication_date:{from_date},type:{'|'.join(types)}"
     if extra_filter:
         filters += "," + extra_filter
-    data = openalex_get(session, {
-        "search": query,
-        "filter": filters,
-        "per-page": 200,
-        "cursor": cursor,
-        "select": select,
-    })
+    params = {"filter": filters, "per-page": 200, "cursor": cursor, "select": select}
+    if query:  # None when the query is a title_and_abstract.search filter instead
+        params["search"] = query
+    data = openalex_get(session, params)
     return data.get("results", []), data.get("meta", {}).get("next_cursor")
 
 
@@ -266,6 +289,7 @@ def find_code_urls(text, rx):
 
 
 def fulltext_hits(session, queries, terms, from_date, types):
+    # queries: (search, filter) pairs from query_args
     """IDs of works whose full text mentions one of the terms (e.g. 'github').
 
     OpenAlex searches its own full-text index, so no PDF is downloaded, but it only says
@@ -275,10 +299,10 @@ def fulltext_hits(session, queries, terms, from_date, types):
         return set()
     hits = set()
     any_term = "fulltext.search:" + "|".join(terms)  # "|" means OR in an OpenAlex filter
-    for query in queries:
+    for search, qfilter in queries:
         try:
-            for work in discover(session, query, from_date, types,
-                                 extra_filter=any_term, select="id"):
+            for work in discover(session, search, from_date, types,
+                                 extra_filter=join_filters(qfilter, any_term), select="id"):
                 hits.add(work["id"])
         except RuntimeError as e:
             log.warning("full-text lookup failed: %s", e)
@@ -391,28 +415,35 @@ def check_queries(session, cfg, sample=10):
         return [f"- {(w.get('publication_date') or '')[:4]} · {w.get('type')} · {w.get('title')}"
                 for w in results]
 
+    search_in = cfg.get("search_in", "title_and_abstract")
+    out.insert(3, f"Queries are matched against: {search_in.replace('_', ' ')}.")
     for name, query in cfg["queries"].items():
+        search, qfilter = query_args(query, search_in)
         q = " ".join(query.split())
         out += [f"## {name}", "", f"`{q}`", ""]
         if "your topic phrase" in q:
             out += ["**This is the template's placeholder query: edit it in the config.**", ""]
+
+        def ask(filters, **params):  # same query, different filters
+            params["filter"] = join_filters(qfilter, filters)
+            if search:
+                params["search"] = search
+            return openalex_get(session, params)
+
         try:
-            groups = openalex_get(session, {"search": q, "filter": f"from_publication_date:{since}",
-                                            "group_by": "type"}).get("group_by", [])
-            top = openalex_get(session, {"search": q, "filter": kept, "per-page": sample,
-                                         "select": "title,type,publication_date"})
+            groups = ask(f"from_publication_date:{since}", group_by="type").get("group_by", [])
+            fields = "title,type,publication_date"
+            top = ask(kept, **{"per-page": sample, "select": fields, "sort": "relevance_score:desc"})
             n = top.get("meta", {}).get("count", 0)
             code = 0
             if terms and n:
-                code = openalex_get(session, {
-                    "search": q, "filter": f"{kept},fulltext.search:{'|'.join(terms)}",
-                    "per-page": 1, "select": "id"}).get("meta", {}).get("count", 0)
+                code = ask(f"{kept},fulltext.search:{'|'.join(terms)}",
+                           **{"per-page": 1, "select": "id"}).get("meta", {}).get("count", 0)
             deep_rank = min(int(n * 0.8), 10_000 - sample)  # OpenAlex pages stop at 10,000
             deep = None
             if n > 3 * sample:
-                deep = openalex_get(session, {"search": q, "filter": kept, "per-page": sample,
-                                              "page": deep_rank // sample + 1,
-                                              "select": "title,type,publication_date"})
+                deep = ask(kept, **{"per-page": sample, "page": deep_rank // sample + 1,
+                                    "select": fields, "sort": "relevance_score:desc"})
         except RuntimeError as e:
             out += [f"Request failed: {e}", ""]
             continue
@@ -457,6 +488,10 @@ def main():
     session = requests.Session()
     session.headers["User-Agent"] = "opentool-watch/1.0 (" + os.getenv("OPENALEX_MAILTO", "no-mailto") + ")"
 
+    # Built once up front, so a malformed query or setting fails before any request is made.
+    search_in = cfg.get("search_in", "title_and_abstract")
+    prepared = {name: query_args(q, search_in) for name, q in cfg["queries"].items()}
+
     if args.check_queries:
         report = check_queries(session, cfg)
         print(report)
@@ -476,12 +511,12 @@ def main():
         since = (dt.date.fromisoformat(last) - dt.timedelta(days=cfg["overlap_days"])).isoformat()
     else:
         since = cfg["start_date"]
-    log.info("searching for papers published since %s", since)
+    log.info("searching %s of papers published since %s", search_in.replace("_", " "), since)
 
     abstracts, new = {}, 0
-    for name, query in cfg["queries"].items():
+    for name, (search, qfilter) in prepared.items():
         n_seen = 0
-        for work in discover(session, " ".join(query.split()), since, cfg["types"]):
+        for work in discover(session, search, since, cfg["types"], extra_filter=qfilter):
             n_seen += 1
             if upsert(db, work, name, today):
                 new += 1
@@ -498,8 +533,7 @@ def main():
     oldest = db.execute("SELECT MIN(publication_date) FROM papers WHERE screened = 0").fetchone()[0]
     fulltext = set()
     if oldest:
-        queries = [" ".join(q.split()) for q in cfg["queries"].values()]
-        fulltext = fulltext_hits(session, queries, cfg.get("fulltext_terms", []),
+        fulltext = fulltext_hits(session, list(prepared.values()), cfg.get("fulltext_terms", []),
                                  oldest, cfg["types"])
         if fulltext is not None:
             log.info("%d papers mention a code host in their full text", len(fulltext))
