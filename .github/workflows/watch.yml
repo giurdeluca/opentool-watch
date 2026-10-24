@@ -66,13 +66,20 @@ jobs:
           OPENALEX_API_KEY: ${{ secrets.OPENALEX_API_KEY }}
           OPENALEX_MAILTO: ${{ secrets.OPENALEX_MAILTO }}
           SINCE: ${{ inputs.since }}
+          PAGES: ${{ vars.WATCH_PAGES }}
+          # The project site lives under the owner's Pages domain (a custom domain if they set one).
+          PAGES_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
         run: |
           if [ -z "$OPENALEX_API_KEY" ]; then
             echo "::error::Add the OPENALEX_API_KEY secret (Settings > Secrets and variables > Actions)"
             exit 1
           fi
           python pipeline.py --config "$CONFIG" --data "$DATA" ${SINCE:+--since "$SINCE"}
-          echo "Dashboard: https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}/" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$PAGES" = "true" ]; then
+            echo "Dashboard: ${PAGES_URL} (it can take a minute after the run)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Dashboard saved as \`$DATA/out/dashboard.html\` in the repository: download it and open it in a browser. Set the WATCH_PAGES variable to \`true\` to publish it as a web page." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Save the database and review queues in the repository
         if: inputs.mode != 'check'

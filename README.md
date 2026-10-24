@@ -41,6 +41,11 @@ and publishes the dashboard as a web page.
    `start_date`; the dashboard then appears at `https://<your-user>.github.io/<repository>/`,
    and the review queues in `watch-data/out/` of your repository.
 
+If you already have a personal site at `<your-user>.github.io`, the dashboard is added under
+it at `/<repository>/` and the rest of your site is not affected. GitHub Pages needs a public
+repository on a free account; with a private one, leave `WATCH_PAGES` unset and download
+`watch-data/out/dashboard.html` from the repository instead.
+
 After that it runs by itself at 06:00 UTC on the 1st of every month. To backfill after adding a
 query or a type, run it by hand with **since** set to your `start_date`.
 
