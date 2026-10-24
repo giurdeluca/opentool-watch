@@ -87,7 +87,24 @@ again; later runs only fetch papers published since the previous run.
   `python dashboard.py --config <config> --data <data folder>` (Docker:
   `docker run --rm -v <data>:/data --entrypoint python opentool-watch dashboard.py --config /app/examples/ldct/config.yaml --data /data`).
 - `out/papersnitch_inputs_<date>.txt` – one PDF or landing URL per line, ready for an optional
-  reproducibility assessment with PaperSnitch or similar tools.
+  reproducibility assessment with [PaperSnitch](#optional-reproducibility-assessment-with-papersnitch).
+
+## Optional: reproducibility assessment with PaperSnitch
+
+opentool-watch only tells you that a paper *points to* code. Whether that code is usable is a
+separate question, which [PaperSnitch](https://github.com/AImageLab-zip/paper-snitch)
+(AImageLab, University of Modena and Reggio Emilia) is designed to answer. It parses a paper,
+checks that the linked repository exists and contains real code, and evaluates paper and
+repository against reproducibility checklists, producing a verifiability score with
+sub-scores and evidence excerpts to inspect. It never executes the code. It is described in:
+
+> F. Bolelli, D. Santoli, K. Marchesini, L. Lumetti, C. Grana. *The Paper Has a GitHub, the
+> GitHub Has a README, the README Has Nothing: Reproducibility Signals for Review Support.*
+> MICCAI 2026. [Paper page](https://papers.miccai.org/miccai-2026/1055-Paper0729.html)
+
+PaperSnitch is not bundled or called by this tool. A practical workflow is to review the
+queue, shortlist the papers you plan to include, and run PaperSnitch on those entries of
+`papersnitch_inputs_<date>.txt`; see its repository for installation and requirements.
 
 ## Limitations
 

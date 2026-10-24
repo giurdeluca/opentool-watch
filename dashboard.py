@@ -153,8 +153,9 @@ details td, details th { padding: 2px 10px 2px 0; text-align: left;
 table.papers { width: 100%; border-collapse: collapse; }
 table.papers th { text-align: left; font-weight: 600; color: var(--ink-2); font-size: 12px;
   border-bottom: 1px solid var(--axis); padding: 6px 8px; white-space: nowrap; }
-table.papers th button { font: inherit; color: inherit; background: none; border: 0;
-  padding: 0; cursor: pointer; }
+table.papers th button { font: inherit; color: var(--link); background: none; border: 0;
+  padding: 0; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+table.papers th button::after { content: attr(data-arrow); }
 table.papers td { border-bottom: 1px solid var(--grid); padding: 8px; vertical-align: top; }
 td.num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 td.code { min-width: 180px; }
@@ -188,6 +189,14 @@ td.code { min-width: 180px; }
     <label><input type="checkbox" id="f-new"> new in last run</label>
     <label><input type="checkbox" id="f-noreview"> hide likely reviews</label>
     <label><input type="checkbox" id="f-dup"> only possible duplicates</label>
+    <label>Sort by <select id="sort" aria-label="Sort papers by">
+      <option value="date:-1">newest first</option>
+      <option value="date:1">oldest first</option>
+      <option value="cited_by:-1">most cited</option>
+      <option value="cited_by:1">least cited</option>
+      <option value="first_seen:-1">recently found</option>
+      <option value="title:1">title A–Z</option>
+    </select></label>
     <button id="reset" type="button">Reset</button>
   </div>
 
@@ -441,12 +450,26 @@ function row(p) {
   tr.append(td1, td2, td3, td4, td5, td6, td7);
   return tr;
 }
+function compare(a, b, k, dir) {
+  const x = a[k], y = b[k];
+  const missX = x == null || x === "", missY = y == null || y === "";
+  if (missX || missY) return missX - missY;  // missing values last, whatever the direction
+  return (typeof x === "number" ? x - y : String(x).localeCompare(String(y))) * dir;
+}
+function syncSort() {
+  const v = `${sortKey}:${sortDir}`;
+  if ([...$("sort").options].some((o) => o.value === v)) $("sort").value = v;
+  document.querySelectorAll("th button[data-sort]").forEach((b) => {
+    const on = b.dataset.sort === sortKey;
+    b.dataset.arrow = on ? (sortDir < 0 ? " ↓" : " ↑") : "";
+    b.closest("th").setAttribute("aria-sort", on ? (sortDir < 0 ? "descending" : "ascending") : "none");
+  });
+}
 function table(sel) {
   const k = sortKey, dir = sortDir;
-  const rows = [...sel].sort((a, b) => {
-    const x = a[k] ?? "", y = b[k] ?? "";
-    return (typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y))) * dir;
-  });
+  syncSort();
+  // Ties (e.g. equal citations) fall back to newest first.
+  const rows = [...sel].sort((a, b) => compare(a, b, k, dir) || compare(a, b, "date", -1));
   $("count").textContent = `${fmt(rows.length)} papers match the filters` + (rows.length > shown ? `, showing the first ${fmt(shown)}` : "");
   $("rows").replaceChildren(...rows.slice(0, shown).map(row));
   $("more").style.display = rows.length > shown ? "" : "none";
@@ -470,6 +493,7 @@ for (const id of ["q", "f-signal", "f-query", "f-type", "f-new", "f-noreview", "
 $("reset").addEventListener("click", () => {
   $("q").value = ""; $("f-signal").value = "code"; $("f-query").value = ""; $("f-type").value = "";
   for (const id of ["f-new", "f-noreview", "f-dup"]) $(id).checked = false;
+  sortKey = "date"; sortDir = -1;
   shown = PAGE; render();
 });
 $("more").addEventListener("click", () => { shown += PAGE; table(filtered(false)); });
@@ -478,6 +502,10 @@ document.querySelectorAll("th button[data-sort]").forEach((b) => b.addEventListe
   sortDir = sortKey === k ? -sortDir : (k === "title" ? 1 : -1); sortKey = k;
   table(filtered(false));
 }));
+$("sort").addEventListener("input", () => {
+  const [k, d] = $("sort").value.split(":");
+  sortKey = k; sortDir = Number(d); table(filtered(false));
+});
 let resizeTimer;
 addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(render, 150); });
 render();
