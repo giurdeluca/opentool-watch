@@ -1,5 +1,7 @@
 # opentool-watch
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23618429.svg)](https://doi.org/10.5281/zenodo.23618429)
+
 Monthly discovery of papers on any research topic from [OpenAlex](https://openalex.org), with a
 pre-screen for released code or model weights. You describe the topic with OpenAlex search
 queries in a YAML file; the tool keeps a deduplicated record of every paper it has seen and,
@@ -220,6 +222,19 @@ usable, is the reviewer's job (the `review_columns`), possibly helped by PaperSn
   code released after publication, or announced only on a project page, is missed.
 - Reviews typed as `article` are flagged by title words only; duplicates are matched by title
   similarity and first author, so a preprint whose title changed completely is not linked.
+
+## How to cite
+
+If you use opentool-watch, please cite it (the **Cite this repository** button on GitHub gives
+APA and BibTeX):
+
+> De Luca, G. R. (2026). *opentool-watch* (Version 0.1.1) [Computer software]. Zenodo.
+> https://doi.org/10.5281/zenodo.23618429
+
+The DOI above always points to the latest version; each release also has its own DOI on
+[Zenodo](https://doi.org/10.5281/zenodo.23618429). Please also cite OpenAlex: Priem, J.,
+Piwowar, H., & Orr, R. (2022). *OpenAlex: A fully-open index of scholarly works, authors,
+venues, institutions, and concepts.* arXiv:2205.01833.
 
 ## License
 

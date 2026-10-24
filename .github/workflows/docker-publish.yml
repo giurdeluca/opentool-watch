@@ -1,11 +1,11 @@
 # Builds the Docker image and publishes it to GitHub Container Registry (ghcr.io) for every
-# release tag (v1.2.3), so users can `docker run ghcr.io/<owner>/opentool-watch` without
+# release tag (v1.2.3 or 1.2.3), so users can `docker run ghcr.io/<owner>/opentool-watch` without
 # building. Can also be started by hand from the Actions tab.
 name: Publish Docker image
 
 on:
   push:
-    tags: ["v*"]
+    tags: ["v*", "[0-9]*"]  # v1.2.3 or 1.2.3
   workflow_dispatch:
 
 permissions:
