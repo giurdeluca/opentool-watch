@@ -1,0 +1,48 @@
+# Use case: open AI tools for low-dose chest CT (lung cancer screening and incidental
+# findings). Run with: --config examples/ldct/config.yaml
+#
+# What to search for. Each query is an OpenAlex search string (Boolean, quoted phrases).
+# Add, remove or edit queries here; the code does not need to change.
+queries:
+  screening: >-
+    ("low-dose CT" OR LDCT) AND "lung cancer screening"
+    AND ("deep learning" OR "machine learning" OR "artificial intelligence")
+  incidental: >-
+    ("low-dose CT" OR LDCT OR "lung cancer screening" OR "chest CT")
+    AND ("incidental findings" OR "coronary artery calcium" OR emphysema
+         OR "epicardial adipose" OR "body composition" OR "bone mineral density"
+         OR osteoporosis OR thymus OR "interstitial lung abnormalities")
+    AND ("deep learning" OR "machine learning" OR "artificial intelligence")
+
+# First run harvests everything published since this date.
+# Later runs only ask for papers published since the previous run (minus a safety overlap).
+start_date: "2020-01-01"
+overlap_days: 14
+
+# Publication types to keep. book-chapter covers Springer LNCS proceedings such as MICCAI.
+types: ["article", "preprint", "book-chapter"]
+
+# Where a link counts as "code or weights available".
+code_hosts:
+  - github.com
+  - gitlab.com
+  - bitbucket.org
+  - huggingface.co
+  - zenodo.org
+  - grand-challenge.org
+  - mhub.ai
+
+# When the abstract has no code link, OpenAlex searches its own copy of the full text for
+# these words (nothing is downloaded). A hit is flagged "fulltext" in the review queue,
+# without the URL. Plain words, not domains: full text is indexed word by word.
+fulltext_terms: ["github", "gitlab", "bitbucket", "huggingface", "zenodo",
+                 "grand-challenge", "mhub"]
+
+# Optional: download open-access PDFs and search them for the exact code link.
+# 0 = never download. Set e.g. 400 to turn it back on (the cap is per run).
+max_pdf_checks_per_run: 0
+max_pdf_mb: 40
+
+# Decision columns added (empty) to the review queue, mirroring the target catalogue.
+# ldct_fit: screening-native / LDCT-tested / general CT / not assessed
+review_columns: ["include (y/n)", "ldct_fit", "weights", "training_data", "notes"]
