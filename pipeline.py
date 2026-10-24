@@ -232,7 +232,14 @@ def screen(db, session, abstracts, rx, cfg, today, fulltext):
 
 # ---------------------------------------------------------------- 4. export
 
-def export(db, out_dir, today, review_columns):
+def review_regex(terms):
+    """Whole words only: 'review' matches 'A Systematic Review' but not 'preview'."""
+    if not terms:
+        return None
+    return re.compile(r"\b(?:" + "|".join(re.escape(t) for t in terms) + r")\b", re.I)
+
+
+def export(db, out_dir, today, review_columns, review_rx):
     os.makedirs(out_dir, exist_ok=True)
     rows = db.execute(
         "SELECT title, publication_date, venue, doi, landing_url, oa_pdf_url, code_urls,"
@@ -244,8 +251,12 @@ def export(db, out_dir, today, review_columns):
     with open(queue, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["title", "date", "venue", "doi", "landing_url", "oa_pdf_url",
-                    "code_urls", "code_found_in", "queries", "cited_by", *review_columns])
-        w.writerows(rows)
+                    "code_urls", "code_found_in", "queries", "cited_by", "likely_review",
+                    *review_columns])
+        for r in rows:
+            # A flag, not a filter: the reviewer decides, and nothing is dropped unseen.
+            hit = review_rx.search(r[0] or "") if review_rx else None
+            w.writerow([*r, hit.group(0).lower() if hit else ""])
     # PaperSnitch accepts PDFs and arXiv/landing URLs: one per line, PDF preferred.
     snitch = os.path.join(out_dir, f"papersnitch_inputs_{today}.txt")
     with open(snitch, "w", encoding="utf-8") as f:
@@ -313,7 +324,8 @@ def main():
     db.execute("INSERT OR REPLACE INTO runs VALUES (?, ?)", (today, new))
     db.commit()
     review_columns = cfg.get("review_columns", ["include (y/n)", "notes"])
-    queue, snitch, n = export(db, os.path.join(args.data, "out"), today, review_columns)
+    queue, snitch, n = export(db, os.path.join(args.data, "out"), today, review_columns,
+                              review_regex(cfg.get("review_title_terms", [])))
     log.info("%d papers with code links screened this run -> %s", n, queue)
     log.info("PaperSnitch input list -> %s", snitch)
 

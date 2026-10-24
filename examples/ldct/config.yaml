@@ -41,6 +41,10 @@ code_hosts:
 fulltext_terms: ["github", "gitlab", "bitbucket", "huggingface", "zenodo",
                  "grand-challenge", "mhub"]
 
+# Titles containing one of these whole words are flagged in the review queue's likely_review
+# column (not dropped). Catches reviews that OpenAlex types as "article".
+review_title_terms: ["review", "systematic review", "meta-analysis", "survey", "overview"]
+
 # Optional: download open-access PDFs and search them for the exact code link.
 # 0 = never download. Set e.g. 400 to turn it back on (the cap is per run).
 max_pdf_checks_per_run: 0

@@ -46,6 +46,7 @@ lives in the config:
 | `code_hosts` | domains whose links count as "code or weights available" |
 | `fulltext_terms` | words looked up in OpenAlex full text when the abstract has no link |
 | `max_pdf_checks_per_run` | optional PDF download screening (0 = off) |
+| `review_title_terms` | title words that flag a paper as `likely_review` (flagged, not dropped) |
 | `review_columns` | empty decision columns added to the review queue |
 
 Later runs only look back to the previous run, so after adding a query or a type, backfill
@@ -71,7 +72,8 @@ again; later runs only fetch papers published since the previous run.
 - `out/review_queue_<date>.csv` – papers screened in that run that have a code signal, with
   empty `review_columns` for your decisions. `code_found_in` is `abstract`, `pdf` (with the
   URL) or `fulltext` (the full text mentions a code host, but the URL was not extracted: find
-  it in the paper while reviewing).
+  it in the paper while reviewing). `likely_review` shows the title word that suggests a
+  review article; OpenAlex's own `review` type is excluded by `types` already.
 - `out/papersnitch_inputs_<date>.txt` – one PDF or landing URL per line, ready for an optional
   reproducibility assessment with PaperSnitch or similar tools.
 
