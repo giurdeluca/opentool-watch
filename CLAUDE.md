@@ -50,7 +50,8 @@ python pipeline.py --config examples/ldct/config.yaml --data ./data   # without 
   `watch-data/` (database and queues, `git add -f` because `*.sqlite` is ignored) and deploys
   the dashboard to GitHub Pages. It is off unless the repo variable `WATCH_ENABLED` is `true`.
 - `.github/workflows/docker-publish.yml` publishes `ghcr.io/<owner>/opentool-watch` for every
-  `v*` tag. To release: update the version in the README examples if needed, then
+  `v*` tag. To release: update `version` and `date-released` in `CITATION.cff` (validate
+  with `cffconvert --validate`) and the version in the README examples if needed, then
   `git tag v0.X.Y && git push origin v0.X.Y`.
 - Lint workflow changes with actionlint before pushing.
 

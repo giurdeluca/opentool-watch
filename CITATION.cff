@@ -1,0 +1,39 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "opentool-watch"
+abstract: >-
+  Topic-agnostic monthly discovery of research papers from OpenAlex, with a pre-screen for
+  released code or model weights, flags for likely reviews and preprint/published duplicates,
+  a review queue and an offline dashboard. Includes low-dose chest CT (lung cancer screening
+  and incidental findings) as a use case.
+authors:
+  - family-names: "De Luca"
+    given-names: "Giulia Raffaella"
+version: "0.1.0"
+date-released: "2026-10-24"
+license: MIT
+repository-code: "https://github.com/giurdeluca/opentool-watch"
+keywords:
+  - OpenAlex
+  - literature monitoring
+  - open source
+  - code availability
+  - reproducibility
+  - medical imaging
+  - lung cancer screening
+references:
+  - type: article
+    title: "OpenAlex: A fully-open index of scholarly works, authors, venues, institutions, and concepts"
+    authors:
+      - family-names: "Priem"
+        given-names: "Jason"
+      - family-names: "Piwowar"
+        given-names: "Heather"
+      - family-names: "Orr"
+        given-names: "Richard"
+    year: 2022
+    identifiers:
+      - type: other
+        value: "arXiv:2205.01833"
+        description: "arXiv preprint"
