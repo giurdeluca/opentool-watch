@@ -11,6 +11,11 @@ OpenAlex's own full-text search flags papers that mention a code host.
 Use case included: open AI tools for low-dose chest CT (lung cancer screening and incidental
 findings), in [`examples/ldct/config.yaml`](examples/ldct/config.yaml).
 
+> **Read before relying on the results.** The screening has not been validated against manual
+> labels, and a "code signal" means that a paper points to a code host, not that it introduces
+> a new tool. The output is a queue for human review, not a curated list. See
+> [Accuracy and scope](#accuracy-and-scope).
+
 ## Requirements
 
 - Docker (or Python 3.12 with `pip install -r requirements.txt`)
@@ -106,12 +111,57 @@ PaperSnitch is not bundled or called by this tool. A practical workflow is to re
 queue, shortlist the papers you plan to include, and run PaperSnitch on those entries of
 `papersnitch_inputs_<date>.txt`; see its repository for installation and requirements.
 
+## Related tools
+
+No existing tool we found combines topic monitoring with a code pre-screen for clinical
+literature, but several cover parts of it and are worth knowing:
+
+| kind | examples | difference from opentool-watch |
+|---|---|---|
+| Detecting open code/data statements in papers | [ODDPub](https://github.com/quest-bih/oddpub), [rtransparent](https://github.com/serghiou/rtransparent), SciScore, SoftCite | Classify full texts you already have (PDF or PubMed Central XML); they do not discover or monitor papers. ODDPub has published accuracy figures: open-code sensitivity 0.73 in its original validation on biomedical papers, and 0.60 when re-validated on arXiv preprints ([Collins & Alexander](https://arxiv.org/abs/2107.10724)); see also a [comparison of these tools](https://arxiv.org/abs/2507.17991) (Eckmann et al.). |
+| Linking papers to code | Papers with Code (closed in July 2025; data dumps archived), Hugging Face Papers, CatalyzeX, [RepoFromPaper](https://oa.upm.es/82930/) | Centred on machine-learning preprints and conferences; little coverage of clinical journals. RepoFromPaper is a research method that needs the full text. |
+| Literature monitoring | OpenAlex email/RSS alerts, [paperscreen](https://github.com/akcelenk/paperscreen) | Deliver new papers on a topic; paperscreen learns to rank them from your judgements. Neither checks for released code or weights. |
+| Curated model catalogues (medical imaging) | [MHub.ai](https://mhub.ai), [Grand Challenge algorithms](https://grand-challenge.org/algorithms/), [MONAI Model Zoo](https://monai.io/model-zoo.html) | Curated, runnable models. opentool-watch can feed such a catalogue rather than replace it. |
+| Reproducibility assessment | [PaperSnitch](https://github.com/AImageLab-zip/paper-snitch) | Assesses papers you already selected; it sits downstream of this tool (see above). |
+
+If you use the code-statement detectors above, they can complement this tool on the papers
+whose full text you have.
+
+## Accuracy and scope
+
+**Accuracy has not been validated.** The precision and recall of the code pre-screen, the
+`likely_review` flag and the `possible_duplicate_of` flag have not been measured against manual
+labels, for any topic. Thresholds and word lists are reasonable defaults, not tuned values.
+Before reporting numbers produced with this tool (e.g. "N open tools were found"), check it on
+your own topic, for example:
+
+- **precision**: label a random sample of the review queue (does the paper really link to its
+  code or weights?), separately for `abstract` and `fulltext` hits;
+- **missed papers**: label a random sample of papers *without* a code signal (`out/dashboard.html`,
+  code signal "No code signal"), to estimate how many releases the screen misses;
+- **flags**: check the `possible_duplicate_of` pairs and `likely_review` titles in the same samples.
+
+**A code signal is broader than "this paper introduces a tool".** It only means that the
+abstract or full text points to a code host. Besides papers that develop and release a new
+model, the queue will contain, for example:
+
+- validation or clinical studies of an existing tool, linking that tool's repository;
+- papers that share analysis scripts or statistics code, not a reusable tool;
+- dataset, benchmark or challenge papers (e.g. Zenodo or Grand Challenge links);
+- reviews and surveys that list repositories;
+- `fulltext` hits where the code host appears only in the references or related work.
+
+Deciding whether a paper introduces a tool, and whether its code or weights are actually
+usable, is the reviewer's job (the `review_columns`), possibly helped by PaperSnitch.
+
 ## Limitations
 
-- Discovery uses OpenAlex only.
-- Papers with no code link in the abstract and no full text in OpenAlex cannot be screened.
-- `fulltext` hits can be false positives (e.g. a Zenodo dataset rather than code, or a GitHub
-  link in the references). The review queue is a starting point for human review, not a verdict.
+- Discovery uses OpenAlex only, and is only as good as the search queries: papers not matched
+  by any query are never seen.
+- Papers with no code link in the abstract and no full text in OpenAlex cannot be screened;
+  code released after publication, or announced only on a project page, is missed.
+- Reviews typed as `article` are flagged by title words only; duplicates are matched by title
+  similarity and first author, so a preprint whose title changed completely is not linked.
 
 ## License
 
