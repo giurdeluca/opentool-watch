@@ -13,9 +13,11 @@ queries:
 start_date: "2020-01-01"
 overlap_days: 14
 
-# OpenAlex publication types to keep. book-chapter covers Springer LNCS proceedings
-# (e.g. MICCAI); drop it if conference papers are not relevant to your field.
-types: ["article", "preprint", "book-chapter"]
+# OpenAlex publication types to keep. Proceedings (MICCAI/LNCS, SPIE, IEEE) are mostly typed
+# conference-paper, some book-chapter. "review" is left out on purpose; see review_title_terms
+# for reviews that OpenAlex types as article. After adding a type, backfill older papers once
+# with --since <start_date>, because later runs only look back to the previous run.
+types: ["article", "preprint", "conference-paper", "book-chapter"]
 
 # Where a link counts as "code or weights available".
 code_hosts:

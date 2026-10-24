@@ -48,6 +48,10 @@ lives in the config:
 | `max_pdf_checks_per_run` | optional PDF download screening (0 = off) |
 | `review_columns` | empty decision columns added to the review queue |
 
+Later runs only look back to the previous run, so after adding a query or a type, backfill
+once with `--since <start_date>` (e.g. append `--since 2020-01-01` to `docker run ... opentool-watch`).
+Papers already in the database are not duplicated.
+
 Before relying on a query, check its precision: look at `meta.count` and a sample of results
 from the first page and a late page.
 

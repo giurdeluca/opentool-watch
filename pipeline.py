@@ -260,6 +260,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", default="config.yaml")
     ap.add_argument("--data", default="data")
+    ap.add_argument("--since", metavar="YYYY-MM-DD",
+                    help="search from this date instead of the last run, e.g. to backfill "
+                         "after adding a query or a type to the config")
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
@@ -270,7 +273,9 @@ def main():
     today = dt.date.today().isoformat()
 
     last = last_run_date(db)
-    if last:
+    if args.since:
+        since = dt.date.fromisoformat(args.since).isoformat()  # fails early on a bad date
+    elif last:
         since = (dt.date.fromisoformat(last) - dt.timedelta(days=cfg["overlap_days"])).isoformat()
     else:
         since = cfg["start_date"]
