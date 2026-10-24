@@ -453,8 +453,8 @@ def check_queries(session, cfg, sample=10):
         out.append(f"- **{n:,} papers** match with the types kept.")
         if dropped:
             out.append("- Left out by `types`: " + ", ".join(f"{t} {c:,}" for t, c in dropped[:8]) + ".")
-        if terms:
-            out.append(f"- **{code:,}** ({100 * code // max(n, 1)}%) mention a code host in their "
+        if terms and n:
+            out.append(f"- **{code:,}** ({100 * code // n}%) mention a code host in their "
                        "full text: a rough idea of the review queue (abstract links come on top).")
         if n == 0:
             out += ["", "No matches: loosen the query (fewer AND terms, more OR synonyms).", ""]
