@@ -13,7 +13,8 @@ accuracy matters more than coverage.
    the cursor until the last page, filtered by publication date and `types`.
 2. **dedup** – stores each paper once in `<data>/papers.sqlite`, keyed on the OpenAlex ID.
    The `runs` table records run dates; later runs search only from the last run date minus
-   `overlap_days`.
+   `overlap_days` (or from `--since`). `flag_duplicates` then links preprints to separate
+   published versions by title similarity and first author (`duplicate_of`); never merge.
 3. **screen** – looks for code or weights links (`code_hosts`) in the abstract; otherwise flags
    papers whose full text mentions a `fulltext_terms` word, using OpenAlex `fulltext.search`
    (no download, no URL: `code_source = 'fulltext'`). Downloading open-access PDFs is optional
@@ -56,6 +57,8 @@ and `fulltext.search` calls) and `pdf_text` with functions returning fixture dat
 `main()` twice against a temporary data folder. Check: papers found by several queries are
 stored once with all query names; the second run reports 0 new papers; the review queue lists
 only papers with a code signal; a failed full-text lookup leaves papers unscreened.
+For schema changes, also start from a database built with the old schema and check it is
+upgraded in place. Keep `flag_duplicates` fast at first-harvest size (a few thousand papers).
 Before changing a query, compare `meta.count` and the precision of a sample of results
 (top page and a late page) against the current query.
 

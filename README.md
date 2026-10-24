@@ -47,6 +47,7 @@ lives in the config:
 | `fulltext_terms` | words looked up in OpenAlex full text when the abstract has no link |
 | `max_pdf_checks_per_run` | optional PDF download screening (0 = off) |
 | `review_title_terms` | title words that flag a paper as `likely_review` (flagged, not dropped) |
+| `duplicate_similarity`, `duplicate_similarity_same_author` | title-similarity thresholds for flagging a preprint/published pair |
 | `review_columns` | empty decision columns added to the review queue |
 
 Later runs only look back to the previous run, so after adding a query or a type, backfill
@@ -74,6 +75,9 @@ again; later runs only fetch papers published since the previous run.
   URL) or `fulltext` (the full text mentions a code host, but the URL was not extracted: find
   it in the paper while reviewing). `likely_review` shows the title word that suggests a
   review article; OpenAlex's own `review` type is excluded by `types` already.
+  `possible_duplicate_of` names the preprint (or published version) of the same paper when
+  OpenAlex keeps them as separate works, with its title similarity in `duplicate_score`.
+  Pairs are matched on title, plus first author for weaker matches, and never merged.
 - `out/papersnitch_inputs_<date>.txt` – one PDF or landing URL per line, ready for an optional
   reproducibility assessment with PaperSnitch or similar tools.
 
