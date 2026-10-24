@@ -19,7 +19,7 @@ findings), in [`examples/ldct/config.yaml`](examples/ldct/config.yaml).
 ## Quick start
 
 ```bash
-git clone https://github.com/<you>/opentool-watch.git && cd opentool-watch
+git clone https://github.com/giurdeluca/open-tool.git && cd open-tool
 docker build -t opentool-watch .
 mkdir -p ~/opentool-watch-data
 docker run --rm -v ~/opentool-watch-data:/data \
