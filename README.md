@@ -9,7 +9,7 @@ No PDFs are downloaded by default: code links are taken from the abstract, and o
 OpenAlex's own full-text search flags papers that mention a code host.
 
 Use case included: open AI tools for low-dose chest CT (lung cancer screening and incidental
-findings), in [`examples/ldct/config.yaml`](examples/ldct/config.yaml).
+findings), in [`examples/ldct/config.yaml`](examples/ldct/config.yaml) --- see the dashbooard demo here: https://giurdeluca.github.io/opentool-watch/
 
 > **Read before relying on the results.** The screening has not been validated against manual
 > labels, and a "code signal" means that a paper points to a code host, not that it introduces
