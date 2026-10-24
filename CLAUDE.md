@@ -38,6 +38,18 @@ docker run --rm -v ~/opentool-watch-data:/data -e OPENALEX_MAILTO=<email> -e OPE
 python pipeline.py --config examples/ldct/config.yaml --data ./data   # without Docker
 ```
 
+## Distribution
+
+- `--check-queries` prints a Markdown report per query (5 OpenAlex requests each) and exits
+  without touching the database; in GitHub Actions it also goes to the run's summary page.
+- `.github/workflows/watch.yml` runs the tool monthly in a user's copy of the repo, commits
+  `watch-data/` (database and queues, `git add -f` because `*.sqlite` is ignored) and deploys
+  the dashboard to GitHub Pages. It is off unless the repo variable `WATCH_ENABLED` is `true`.
+- `.github/workflows/docker-publish.yml` publishes `ghcr.io/<owner>/opentool-watch` for every
+  `v*` tag. To release: update the version in the README examples if needed, then
+  `git tag v0.X.Y && git push origin v0.X.Y`.
+- Lint workflow changes with actionlint before pushing.
+
 ## Rules
 
 - **Keep the code topic-agnostic.** Queries, code hosts, full-text terms and review columns

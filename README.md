@@ -16,32 +16,76 @@ findings), in [`examples/ldct/config.yaml`](examples/ldct/config.yaml).
 > a new tool. The output is a queue for human review, not a curated list. See
 > [Accuracy and scope](#accuracy-and-scope).
 
-## Requirements
+## Three ways to run it
 
-- Docker (or Python 3.12 with `pip install -r requirements.txt`)
-- A free OpenAlex API key (https://openalex.org/settings/api), required since February 2026
+All three need a free OpenAlex API key (https://openalex.org/settings/api), required by
+OpenAlex since February 2026.
 
-## Quick start
+### 1. On GitHub, with no installation
+
+GitHub runs the tool every month in your own copy of this repository, keeps the results there,
+and publishes the dashboard as a web page.
+
+1. **Make your copy**: click **Use this template** (or **Fork**) at the top of this page.
+2. **Add your key** in your copy, under *Settings → Secrets and variables → Actions*:
+   - *Secrets* tab: `OPENALEX_API_KEY` = your key (and optionally `OPENALEX_MAILTO` = your e-mail);
+   - *Variables* tab: `WATCH_ENABLED` = `true`, and `WATCH_PAGES` = `true` to publish the dashboard.
+3. **Turn on the dashboard site**: *Settings → Pages → Source*: **GitHub Actions**.
+4. **Describe your topic**: edit `config.yaml` in the browser (pencil icon): set `title` and
+   replace the placeholder query. To use another file, e.g. the LDCT example, set the variable
+   `WATCH_CONFIG` = `examples/ldct/config.yaml`.
+5. **Check the queries**: *Actions → Watch → Run workflow*, mode **check**. The report (size,
+   types, code mentions, sample titles) appears on the run's summary page. Edit and repeat until
+   the sample titles look right (see [Checking your queries](#checking-your-queries)).
+6. **Start**: run the workflow again with mode **run**. The first run harvests everything since
+   `start_date`; the dashboard then appears at `https://<your-user>.github.io/<repository>/`,
+   and the review queues in `watch-data/out/` of your repository.
+
+After that it runs by itself at 06:00 UTC on the 1st of every month. To backfill after adding a
+query or a type, run it by hand with **since** set to your `start_date`.
+
+Everything the tool produces (database, review queues, dashboard) is committed to your
+repository, and the GitHub Pages site is public. The data are public OpenAlex metadata, but your
+decisions in the review columns are yours to keep elsewhere if they should stay private.
+
+### 2. With Docker
+
+A ready-made image is published for each release, so nothing needs building:
+
+```bash
+mkdir -p ~/opentool-watch-data
+printf 'OPENALEX_API_KEY=your-key\nOPENALEX_MAILTO=you@example.org\n' > ~/opentool-watch-data/.env
+chmod 600 ~/opentool-watch-data/.env    # readable only by you
+docker run --rm -v ~/opentool-watch-data:/data --env-file ~/opentool-watch-data/.env \
+  ghcr.io/giurdeluca/opentool-watch --config /app/examples/ldct/config.yaml
+```
+
+For your own topic, mount your config: add `-v $PWD/my-topic.yaml:/my-topic.yaml:ro` and use
+`--config /my-topic.yaml`. Pin a version (e.g. `ghcr.io/giurdeluca/opentool-watch:0.1.0`) to
+keep results reproducible; to build the image yourself instead: `docker build -t opentool-watch .`.
+
+Monthly, with host cron (1st of each month at 06:00):
+
+```cron
+0 6 1 * * docker run --rm -v $HOME/opentool-watch-data:/data --env-file $HOME/opentool-watch-data/.env ghcr.io/giurdeluca/opentool-watch --config /app/examples/ldct/config.yaml >> $HOME/opentool-watch-data/cron.log 2>&1
+```
+
+### 3. With Python
 
 ```bash
 git clone https://github.com/giurdeluca/opentool-watch.git && cd opentool-watch
-docker build -t opentool-watch .
-mkdir -p ~/opentool-watch-data
-docker run --rm -v ~/opentool-watch-data:/data \
-  -e OPENALEX_MAILTO=you@example.org -e OPENALEX_API_KEY=your-key \
-  opentool-watch --config /app/examples/ldct/config.yaml
+pip install -r requirements.txt
+export OPENALEX_API_KEY=your-key OPENALEX_MAILTO=you@example.org
+python pipeline.py --config examples/ldct/config.yaml --data ./data
 ```
 
-Without Docker: `python pipeline.py --config examples/ldct/config.yaml --data ./data`.
-
-To keep the key out of your shell history and crontab, put both variables in a file readable
-only by you (`chmod 600`) and pass `--env-file that-file` instead of the two `-e` flags.
+The first run harvests everything since `start_date`; later runs only fetch papers published
+since the previous run. If the log says "papers wait for screening" (a full-text lookup failed,
+or PDF screening is on and its cap was reached), run it again.
 
 ## Your own topic
 
-Copy `config.yaml` (a commented template), replace the queries, and either rebuild the image
-or mount the file: `-v $PWD/my-topic.yaml:/app/config.yaml:ro`. Everything that defines a topic
-lives in the config:
+Start from `config.yaml`, a commented template. Everything that defines a topic lives in it:
 
 | key | meaning |
 |---|---|
@@ -57,21 +101,24 @@ lives in the config:
 | `review_columns` | empty decision columns added to the review queue |
 
 Later runs only look back to the previous run, so after adding a query or a type, backfill
-once with `--since <start_date>` (e.g. append `--since 2020-01-01` to `docker run ... opentool-watch`).
-Papers already in the database are not duplicated.
+once with `--since <start_date>`. Papers already in the database are not duplicated.
 
-Before relying on a query, check its precision: look at `meta.count` and a sample of results
-from the first page and a late page.
+### Checking your queries
 
-## Schedule (host cron, 1st of each month at 06:00)
+Before the first real run, check each query without touching the database:
 
-```cron
-0 6 1 * * docker run --rm -v $HOME/opentool-watch-data:/data --env-file $HOME/opentool-watch-data/.env opentool-watch --config /app/examples/ldct/config.yaml >> $HOME/opentool-watch-data/cron.log 2>&1
+```bash
+python pipeline.py --config my-topic.yaml --check-queries
+# Docker: docker run --rm --env-file ... ghcr.io/giurdeluca/opentool-watch --config /my-topic.yaml --check-queries
+# GitHub: Actions -> Watch -> Run workflow, mode "check"
 ```
 
-The first run harvests everything since `start_date`. If the log says "papers wait for
-screening" (a full-text lookup failed, or PDF screening is on and its cap was reached), run it
-again; later runs only fetch papers published since the previous run.
+For each query it reports how many papers match, which publication types `types` leaves out,
+how many papers mention a code host in their full text, and two samples of titles: the most
+relevant ones and some from deep in the results (around 80% of the ranking). OpenAlex sorts by
+relevance, so the deep sample is where off-topic matches show up: if most of those titles are
+off-topic, tighten the query (more specific phrases, an extra `AND` group). A check costs five
+OpenAlex requests per query.
 
 ## Outputs (in the data folder)
 
@@ -90,7 +137,7 @@ again; later runs only fetch papers published since the previous run.
   paper (DOI, publisher page, open-access PDF, OpenAlex record, code links). Rebuilt at the end
   of every run; to rebuild it from an existing database without querying OpenAlex:
   `python dashboard.py --config <config> --data <data folder>` (Docker:
-  `docker run --rm -v <data>:/data --entrypoint python opentool-watch dashboard.py --config /app/examples/ldct/config.yaml --data /data`).
+  `docker run --rm -v <data>:/data --entrypoint python ghcr.io/giurdeluca/opentool-watch dashboard.py --config /app/examples/ldct/config.yaml --data /data`).
 - `out/papersnitch_inputs_<date>.txt` – one PDF or landing URL per line, ready for an optional
   reproducibility assessment with [PaperSnitch](#optional-reproducibility-assessment-with-papersnitch).
 

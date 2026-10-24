@@ -1,0 +1,108 @@
+# Runs opentool-watch on GitHub's machines: no local installation needed.
+#
+# Off by default. To turn it on (see README, "Run it on GitHub"):
+#   Settings > Secrets and variables > Actions
+#     secret   OPENALEX_API_KEY   (required; free at https://openalex.org/settings/api)
+#     secret   OPENALEX_MAILTO    (optional, your e-mail)
+#     variable WATCH_ENABLED = true
+#     variable WATCH_CONFIG  = path of your config (optional, default config.yaml)
+#     variable WATCH_PAGES   = true to publish the dashboard with GitHub Pages
+#
+# Each run commits the database and the review queues to watch-data/ in this repository.
+name: Watch
+
+on:
+  schedule:
+    - cron: "0 6 1 * *"  # 06:00 UTC on the 1st of every month
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "run = update papers and dashboard; check = only report on the queries"
+        type: choice
+        options: [run, check]
+        default: run
+      since:
+        description: "Optional: search from this date (YYYY-MM-DD), e.g. after adding a query"
+        required: false
+
+concurrency:
+  group: watch  # never two runs writing the database at once
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+env:
+  CONFIG: ${{ vars.WATCH_CONFIG || 'config.yaml' }}
+  DATA: watch-data
+
+jobs:
+  watch:
+    if: vars.WATCH_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Check the queries (report on the run's summary page)
+        if: inputs.mode == 'check'
+        env:
+          OPENALEX_API_KEY: ${{ secrets.OPENALEX_API_KEY }}
+          OPENALEX_MAILTO: ${{ secrets.OPENALEX_MAILTO }}
+        run: python pipeline.py --config "$CONFIG" --check-queries
+
+      - name: Run the pipeline
+        if: inputs.mode != 'check'  # scheduled runs have no inputs: they run
+        env:
+          OPENALEX_API_KEY: ${{ secrets.OPENALEX_API_KEY }}
+          OPENALEX_MAILTO: ${{ secrets.OPENALEX_MAILTO }}
+          SINCE: ${{ inputs.since }}
+        run: |
+          if [ -z "$OPENALEX_API_KEY" ]; then
+            echo "::error::Add the OPENALEX_API_KEY secret (Settings > Secrets and variables > Actions)"
+            exit 1
+          fi
+          python pipeline.py --config "$CONFIG" --data "$DATA" ${SINCE:+--since "$SINCE"}
+          echo "Dashboard: https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}/" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Save the database and review queues in the repository
+        if: inputs.mode != 'check'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f "$DATA/papers.sqlite" "$DATA/out"
+          if git diff --cached --quiet; then
+            echo "Nothing new to commit."
+          else
+            git commit -m "Watch run $(date -u +%F)"
+            git push
+          fi
+
+      - name: Prepare the dashboard site
+        if: inputs.mode != 'check' && vars.WATCH_PAGES == 'true'
+        run: mkdir -p _site && cp "$DATA/out/dashboard.html" _site/index.html
+
+      - uses: actions/upload-pages-artifact@v3
+        if: inputs.mode != 'check' && vars.WATCH_PAGES == 'true'
+        with:
+          path: _site
+
+  pages:
+    needs: watch
+    if: inputs.mode != 'check' && vars.WATCH_PAGES == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
