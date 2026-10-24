@@ -33,6 +33,7 @@ permissions:
   contents: write
   pages: write
   id-token: write
+  actions: read  # deploy-pages reads the uploaded dashboard artifact
 
 env:
   CONFIG: ${{ vars.WATCH_CONFIG || 'config.yaml' }}
@@ -98,7 +99,7 @@ jobs:
         if: inputs.mode != 'check' && vars.WATCH_PAGES == 'true'
         run: mkdir -p _site && cp "$DATA/out/dashboard.html" _site/index.html
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         if: inputs.mode != 'check' && vars.WATCH_PAGES == 'true'
         with:
           path: _site
@@ -112,4 +113,4 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
