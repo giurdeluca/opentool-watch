@@ -6,7 +6,7 @@ Stages
   1. discover   query OpenAlex for each configured search (cursor pagination)
   2. dedup      store every paper once in a SQLite file, keyed on the OpenAlex ID
   3. screen     look for code/weights links in the abstract, then in OpenAlex's full text
-  4. export     write a review queue (CSV) and a PaperSnitch input list for this run
+  4. export     write a review queue (CSV), a PaperSnitch input list and dashboard.html
 
 Run:  python pipeline.py --config config.yaml --data ./data
 Env:  OPENALEX_MAILTO  your e-mail (OpenAlex asks scripts to identify themselves)
@@ -28,6 +28,8 @@ import unicodedata
 import requests
 import yaml
 from pypdf import PdfReader
+
+import dashboard
 
 API = "https://api.openalex.org/works"
 FIELDS = ",".join([
@@ -427,10 +429,12 @@ def main():
     db.execute("INSERT OR REPLACE INTO runs VALUES (?, ?)", (today, new))
     db.commit()
     review_columns = cfg.get("review_columns", ["include (y/n)", "notes"])
-    queue, snitch, n = export(db, os.path.join(args.data, "out"), today, review_columns,
-                              review_regex(cfg.get("review_title_terms", [])))
+    review_rx = review_regex(cfg.get("review_title_terms", []))
+    out_dir = os.path.join(args.data, "out")
+    queue, snitch, n = export(db, out_dir, today, review_columns, review_rx)
     log.info("%d papers with code links screened this run -> %s", n, queue)
     log.info("PaperSnitch input list -> %s", snitch)
+    log.info("dashboard -> %s", dashboard.write_dashboard(db, out_dir, cfg, review_rx))
 
 
 if __name__ == "__main__":

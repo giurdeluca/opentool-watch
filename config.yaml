@@ -1,5 +1,8 @@
 # Template: replace the queries with your topic. See examples/ for a complete use case.
 #
+# Shown as the dashboard heading.
+title: "My topic: open tools"
+
 # What to search for. Each query is an OpenAlex search string (Boolean, quoted phrases).
 # Add, remove or edit queries here; the code does not need to change. Papers found by
 # several queries are stored once, with all query names recorded.

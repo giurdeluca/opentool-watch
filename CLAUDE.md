@@ -21,7 +21,10 @@ accuracy matters more than coverage.
    and off by default (`max_pdf_checks_per_run: 0`).
 4. **export** – writes `<data>/out/review_queue_<date>.csv` (with the config's
    `review_columns`) and `<data>/out/papersnitch_inputs_<date>.txt` for papers screened in
-   that run.
+   that run. `dashboard.py` then rebuilds `<data>/out/dashboard.html` from the whole
+   database: a single offline page (stdlib only, no CDN), data embedded as JSON and rendered
+   with plain JS. Insert data with `textContent` and only link http(s) URLs: titles and URLs
+   come from an external API.
 
 Discovery uses OpenAlex only. This is a decision, not a gap: do not add other sources
 (PubMed, arXiv, paperscraper, Semantic Scholar) unless asked.

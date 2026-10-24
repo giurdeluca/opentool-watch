@@ -1,6 +1,9 @@
 # Use case: open AI tools for low-dose chest CT (lung cancer screening and incidental
 # findings). Run with: --config examples/ldct/config.yaml
 #
+# Shown as the dashboard heading.
+title: "Open AI tools for low-dose chest CT"
+
 # What to search for. Each query is an OpenAlex search string (Boolean, quoted phrases).
 # Add, remove or edit queries here; the code does not need to change.
 queries:

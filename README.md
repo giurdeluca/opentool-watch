@@ -40,6 +40,7 @@ lives in the config:
 
 | key | meaning |
 |---|---|
+| `title` | heading of the dashboard |
 | `queries` | named OpenAlex search strings (Boolean, quoted phrases) |
 | `start_date`, `overlap_days` | first-run horizon; safety overlap for later runs |
 | `types` | OpenAlex work types to keep |
@@ -78,6 +79,13 @@ again; later runs only fetch papers published since the previous run.
   `possible_duplicate_of` names the preprint (or published version) of the same paper when
   OpenAlex keeps them as separate works, with its title similarity in `duplicate_score`.
   Pairs are matched on title, plus first author for weaker matches, and never merged.
+- `out/dashboard.html` – every paper tracked so far, in one page that opens offline in any
+  browser: summary numbers, papers per year with and without a code signal, where the signal
+  was found, per query and per type, and a filterable, sortable table with links to verify each
+  paper (DOI, publisher page, open-access PDF, OpenAlex record, code links). Rebuilt at the end
+  of every run; to rebuild it from an existing database without querying OpenAlex:
+  `python dashboard.py --config <config> --data <data folder>` (Docker:
+  `docker run --rm -v <data>:/data --entrypoint python opentool-watch dashboard.py --config /app/examples/ldct/config.yaml --data /data`).
 - `out/papersnitch_inputs_<date>.txt` – one PDF or landing URL per line, ready for an optional
   reproducibility assessment with PaperSnitch or similar tools.
 
