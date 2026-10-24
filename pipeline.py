@@ -65,26 +65,31 @@ def get_with_retry(session, url, params=None, stream=False, tries=5):
 
 # ---------------------------------------------------------------- 1. discover
 
-def fetch_page(session, query, from_date, types, cursor, extra_filter=None, select=FIELDS):
-    """One OpenAlex page. Returns (results, next_cursor)."""
-    filters = f"from_publication_date:{from_date},type:{'|'.join(types)}"
-    if extra_filter:
-        filters += "," + extra_filter
-    params = {
-        "search": query,
-        "filter": filters,
-        "per-page": 200,
-        "cursor": cursor,
-        "select": select,
-    }
+def openalex_get(session, params):
+    """One /works request with the polite-pool e-mail and the API key added. Returns JSON."""
+    params = dict(params)
     if os.getenv("OPENALEX_MAILTO"):
         params["mailto"] = os.environ["OPENALEX_MAILTO"]
     if os.getenv("OPENALEX_API_KEY"):
         params["api_key"] = os.environ["OPENALEX_API_KEY"]
     r = get_with_retry(session, API, params=params)
     if r is None:
-        raise RuntimeError(f"OpenAlex request failed for cursor {cursor}")
-    data = r.json()
+        raise RuntimeError(f"OpenAlex request failed: {params.get('filter', '')}")
+    return r.json()
+
+
+def fetch_page(session, query, from_date, types, cursor, extra_filter=None, select=FIELDS):
+    """One OpenAlex page. Returns (results, next_cursor)."""
+    filters = f"from_publication_date:{from_date},type:{'|'.join(types)}"
+    if extra_filter:
+        filters += "," + extra_filter
+    data = openalex_get(session, {
+        "search": query,
+        "filter": filters,
+        "per-page": 200,
+        "cursor": cursor,
+        "select": select,
+    })
     return data.get("results", []), data.get("meta", {}).get("next_cursor")
 
 
@@ -366,6 +371,72 @@ def export(db, out_dir, today, review_columns, review_rx):
     return queue, snitch, len(rows)
 
 
+# ---------------------------------------------------------------- query check
+
+def check_queries(session, cfg, sample=10):
+    """Markdown report for judging each query before a real run (5 requests per query).
+
+    OpenAlex ranks search results by relevance, so precision is best judged by reading the
+    top titles *and* titles from deep in the ranking, where off-topic matches pile up.
+    """
+    since, types = cfg["start_date"], cfg["types"]
+    terms = cfg.get("fulltext_terms", [])
+    kept = f"from_publication_date:{since},type:{'|'.join(types)}"
+    out = [f"# Query check: {cfg.get('title') or 'opentool-watch'}", "",
+           f"Papers published since {since}; types kept: {', '.join(types)}.", ""]
+    if not os.getenv("OPENALEX_API_KEY"):
+        out += ["> No OPENALEX_API_KEY set: OpenAlex may refuse some requests.", ""]
+
+    def titles(results):
+        return [f"- {(w.get('publication_date') or '')[:4]} · {w.get('type')} · {w.get('title')}"
+                for w in results]
+
+    for name, query in cfg["queries"].items():
+        q = " ".join(query.split())
+        out += [f"## {name}", "", f"`{q}`", ""]
+        if "your topic phrase" in q:
+            out += ["**This is the template's placeholder query: edit it in the config.**", ""]
+        try:
+            groups = openalex_get(session, {"search": q, "filter": f"from_publication_date:{since}",
+                                            "group_by": "type"}).get("group_by", [])
+            top = openalex_get(session, {"search": q, "filter": kept, "per-page": sample,
+                                         "select": "title,type,publication_date"})
+            n = top.get("meta", {}).get("count", 0)
+            code = 0
+            if terms and n:
+                code = openalex_get(session, {
+                    "search": q, "filter": f"{kept},fulltext.search:{'|'.join(terms)}",
+                    "per-page": 1, "select": "id"}).get("meta", {}).get("count", 0)
+            deep_rank = min(int(n * 0.8), 10_000 - sample)  # OpenAlex pages stop at 10,000
+            deep = None
+            if n > 3 * sample:
+                deep = openalex_get(session, {"search": q, "filter": kept, "per-page": sample,
+                                              "page": deep_rank // sample + 1,
+                                              "select": "title,type,publication_date"})
+        except RuntimeError as e:
+            out += [f"Request failed: {e}", ""]
+            continue
+
+        dropped = [(g["key_display_name"], g["count"]) for g in groups
+                   if g["key_display_name"] not in types]
+        out.append(f"- **{n:,} papers** match with the types kept.")
+        if dropped:
+            out.append("- Left out by `types`: " + ", ".join(f"{t} {c:,}" for t, c in dropped[:8]) + ".")
+        if terms:
+            out.append(f"- **{code:,}** ({100 * code // max(n, 1)}%) mention a code host in their "
+                       "full text: a rough idea of the review queue (abstract links come on top).")
+        if n == 0:
+            out += ["", "No matches: loosen the query (fewer AND terms, more OR synonyms).", ""]
+            continue
+        if n > 10_000:
+            out.append("- Large: the first run will take a while; consider narrowing the query.")
+        out += ["", f"Most relevant {sample}:", *titles(top.get("results", [])), ""]
+        if deep:
+            out += [f"Around rank {deep_rank:,} (if these are mostly off-topic, tighten the query):",
+                    *titles(deep.get("results", [])), ""]
+    return "\n".join(out)
+
+
 # ---------------------------------------------------------------- main
 
 def main():
@@ -375,11 +446,25 @@ def main():
     ap.add_argument("--since", metavar="YYYY-MM-DD",
                     help="search from this date instead of the last run, e.g. to backfill "
                          "after adding a query or a type to the config")
+    ap.add_argument("--check-queries", action="store_true",
+                    help="print a report on each query (size, types, code mentions, sample "
+                         "titles) and exit, without touching the database")
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
     with open(args.config, encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
+    session = requests.Session()
+    session.headers["User-Agent"] = "opentool-watch/1.0 (" + os.getenv("OPENALEX_MAILTO", "no-mailto") + ")"
+
+    if args.check_queries:
+        report = check_queries(session, cfg)
+        print(report)
+        if os.getenv("GITHUB_STEP_SUMMARY"):  # shown on the run's page in GitHub Actions
+            with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
+                f.write(report + "\n")
+        return
+
     os.makedirs(args.data, exist_ok=True)
     db = open_db(os.path.join(args.data, "papers.sqlite"))
     today = dt.date.today().isoformat()
@@ -393,8 +478,6 @@ def main():
         since = cfg["start_date"]
     log.info("searching for papers published since %s", since)
 
-    session = requests.Session()
-    session.headers["User-Agent"] = "opentool-watch/1.0 (" + os.getenv("OPENALEX_MAILTO", "no-mailto") + ")"
     abstracts, new = {}, 0
     for name, query in cfg["queries"].items():
         n_seen = 0
