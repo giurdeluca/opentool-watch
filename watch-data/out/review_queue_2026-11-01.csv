@@ -1,0 +1,3 @@
+title,date,venue,doi,landing_url,oa_pdf_url,code_urls,code_found_in,queries,cited_by,likely_review,possible_duplicate_of,duplicate_score,include (y/n),ldct_fit,weights,training_data,notes
+"Early detection of lung cancer: The past, present, and future",2026-10-28,Canadian Oncology Nursing Journal,https://doi.org/10.5737/23688076365808,https://doi.org/10.5737/23688076365808,https://canadianoncologynursingjournal.com/index.php/conj/article/download/1804/1472,,fulltext,screening,0,,,
+A topology-aware visual fusion framework for patient-level emphysema classification from chest CT images,2026-10-15,Array,https://doi.org/10.1016/j.array.2026.101372,https://doi.org/10.1016/j.array.2026.101372,,https://github.com/muhammedtalo/Emphysema,abstract,incidental,0,,,
